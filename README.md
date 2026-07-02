@@ -1,13 +1,14 @@
 # Legacy Migration Validator CLI
 
-Local CLI Validator PoC for read-only checks of Markdown-based migration documentation.
+A local read-only CLI PoC for validating Markdown-based documentation consistency in a spec-driven legacy migration workflow.
 
 ## Status
 
-CLI v1 PoC implementation is complete and under acceptance review.
+CLI v1 PoC implementation and local acceptance checks are complete.
 
 The PoC validates Markdown structure and approved surface-level
-conventions. It does not judge domain meaning or prove runtime behavior.
+conventions. This is not a production-ready validator. It does not
+judge domain meaning or prove runtime behavior.
 
 ## Command Contract
 
@@ -57,6 +58,15 @@ included in this PoC.
 - `fixtures/valid-vault`: expected to pass without issues
 - `fixtures/invalid-vault`: expected to fail with validation errors
 - `fixtures/boundary-vault`: expected to pass with warnings
+
+## Public Safety
+
+- Fixtures contain fake examples only.
+- Company code, real service identifiers, credentials, and real
+  environment information are not included.
+- Generated reports are ignored by Git.
+- The repository does not claim production readiness or validation of
+  a real migration.
 
 ## Boundaries
 

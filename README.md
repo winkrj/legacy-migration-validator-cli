@@ -1,38 +1,115 @@
 # Legacy Migration Validator CLI
 
-A local read-only CLI PoC for validating Markdown-based documentation consistency in a spec-driven legacy migration workflow.
+> 스펙 기반 레거시 마이그레이션 과정에서 Markdown 문서의 구조와 기본 일관성을 검사하는 read-only CLI PoC
 
-## Status
+## 왜 만들었는가
 
-CLI v1 PoC implementation and local acceptance checks are complete.
+레거시 기능을 이관할 때는 코드 작성 전에 Discover, Specify, Plan, Implement, Validate, Archive 문서를 순서대로 남기는 것이 중요합니다. 그러나 문서가 많아지면 다음 문제가 반복됩니다.
 
-The PoC validates Markdown structure and approved surface-level
-conventions. This is not a production-ready validator. It does not
-judge domain meaning or prove runtime behavior.
+- 필수 문서나 section이 누락된다.
+- 같은 상태를 서로 다른 표현으로 기록한다.
+- 구현 권한이나 단계 경계와 본문 설명이 충돌한다.
+- 공개하면 안 되는 값이 문서에 섞일 수 있다.
+- 사람이 모든 Markdown 파일을 매번 수동 검토해야 한다.
 
-## Command Contract
+이 프로젝트는 이런 문제를 조기에 찾기 위한 로컬 CLI 실험입니다. 문서의 의미를 대신 판단하지 않고, deterministic rule로 확인할 수 있는 구조·표현·안전성 후보만 검사합니다.
+
+## 현재 상태
+
+- CLI v1 PoC 구현 및 local acceptance 완료
+- Node.js + TypeScript 기반
+- Input root에 대한 read-only 동작
+- Public-safe fixture로 검증
+- Production-ready 도구가 아님
+
+이 도구는 domain rule의 정확성, 실제 migration 성공 여부 또는 runtime behavior를 보장하지 않습니다.
+
+## 검사 기준
+
+### 필수 문서
+
+스캔 대상 어디에서든 다음 basename의 문서가 존재하는지 확인합니다.
+
+- `00_Index.md`
+- `01_Discover.md`
+- `02_Specify.md`
+- `03_Plan.md`
+- `04_Implement.md`
+- `05_Validate.md`
+- `06_Archive.md`
+- `99_Open-Questions.md`
+
+### 문서 구조
+
+문서별로 정해진 Markdown heading과 field를 검사합니다. 예:
+
+- Index: `Status`, `Scope`
+- Discover: `Status`, `Sources`, `Findings`, `Open Questions`
+- Plan: `Status`, `Implementation Plan`, `Test Plan`, `Risks`
+- Archive: `Status`, `Decision`, `Archived Knowledge`, `Carry-forward`
+- Index/Archive field: `Status:`, `Implementation:`, `Automation:`, `MCP/Plugin:`
+
+전체 baseline은 [`src/config`](./src/config)에서 확인할 수 있습니다.
+
+### Vocabulary와 boundary
+
+- 승인된 status vocabulary가 아닌 값은 error로 기록합니다.
+- Canonical term 대신 alias가 사용되면 warning을 기록합니다.
+- `Implementation: Not Started` 같은 명시적 field와 구현 완료를 암시하는 본문이 충돌하면 warning을 기록합니다.
+- 민감정보일 가능성이 있는 pattern은 값을 수정하지 않고 warning candidate로만 기록합니다.
+
+### Severity
+
+- `error`: 필수 문서·section·field 또는 vocabulary 위반
+- `warning`: alias, 단계 경계 충돌 또는 민감정보 후보
+
+Warning만 존재하면 CLI exit code는 `0`입니다.
+
+## 어떻게 동작하는가
+
+```text
+CLI argument/path validation
+  → read-only Markdown scan
+  → deterministic rule execution
+  → Markdown report 생성
+  → stdout summary와 exit code 반환
+```
+
+Scanner는 다음 원칙을 따릅니다.
+
+- `.md` 파일만 재귀적으로 읽습니다.
+- `.MD` 파일은 포함하지 않습니다.
+- `.git`, `node_modules`, `dist`, `reports`와 hidden directory를 제외합니다.
+- File/directory symlink를 따라가지 않습니다.
+- Input root의 파일을 생성·수정·삭제하지 않습니다.
+
+## 요구 환경
+
+- Node.js 20 이상
+- npm
+
+## 설치
+
+```sh
+git clone <private-or-approved-repository-url>
+cd legacy-migration-validator-cli
+npm install
+npm run typecheck
+npm run build
+npm test
+```
+
+Repository visibility와 URL은 소유자의 승인 범위를 따라야 합니다.
+
+## 사용법
+
+Command contract:
 
 ```text
 legacy-validator validate --root <path> --report <path>
 ```
 
-The report path must be outside the input root. A report path inside the input root is a usage error with exit code `2`.
-
-## Exit Codes
-
-- `0`: no validation errors
-- `1`: validation errors
-- `2`: CLI usage error or invalid root/report path
-- `3`: unexpected runtime failure
-
-## Scripts
-
-- `npm run dev`
-- `npm run typecheck`
-- `npm run build`
-- `npm test`
-
-## Usage Example
+빌드한 CLI 실행:
 
 ```sh
 npm run build
@@ -41,33 +118,87 @@ node dist/index.js validate \
   --report ./reports/valid-report.md
 ```
 
-The input root is read-only. Reports must be written outside the input
-root. JSON output and auto-fix are not supported. MCP/Plugin is not
-included in this PoC.
+개발 모드:
 
-## Implemented Checks
+```sh
+npm run dev -- validate \
+  --root ./fixtures/valid-vault \
+  --report ./reports/valid-report.md
+```
 
-- Canonical term and alias warnings
-- Required document, section, and field errors
-- Status vocabulary errors
-- Implementation and automation boundary warnings
-- Sensitive-pattern candidate warnings
+`--report`는 반드시 input root 밖의 경로여야 합니다. Input root 내부 또는 root와 동일한 report 경로는 exit code `2`로 거부됩니다.
 
-## Public-safe Fixtures
+## 출력
 
-- `fixtures/valid-vault`: expected to pass without issues
-- `fixtures/invalid-vault`: expected to fail with validation errors
-- `fixtures/boundary-vault`: expected to pass with warnings
+stdout 예:
 
-## Public Safety
+```text
+Legacy Migration Validator CLI
+Root: /path/to/input
+Markdown files scanned: 8
+Errors: 0
+Warnings: 0
+Report written: /path/to/report.md
+```
 
-- Fixtures contain fake examples only.
-- Company code, real service identifiers, credentials, and real
-  environment information are not included.
-- Generated reports are ignored by Git.
-- The repository does not claim production readiness or validation of
-  a real migration.
+Markdown report에는 Summary, issue table, read-only guarantee와 scope note가 포함됩니다.
 
-## Boundaries
+### Exit codes
 
-The validator is read-only. MCP/Plugin, CI, JSON output, configurable aliases, LLM-assisted review, auto-fix, source mutation, company code, real company fixtures, and domain meaning judgement are excluded.
+- `0`: validation error 없음
+- `1`: validation error 존재
+- `2`: CLI usage error 또는 잘못된 root/report path
+- `3`: 예상하지 못한 runtime failure
+
+## Public-safe fixtures
+
+- `fixtures/valid-vault`: error/warning 없이 통과
+- `fixtures/invalid-vault`: 의도적인 validation error 포함
+- `fixtures/boundary-vault`: error 없이 warning candidate 포함
+
+Fixture는 모두 가짜 공개용 예시입니다. 실제 회사 코드, API, DB, account, credential 또는 운영 데이터를 포함하지 않습니다.
+
+## 주요 npm scripts
+
+- `npm run dev`: TypeScript source로 CLI 실행
+- `npm run typecheck`: TypeScript type 검사
+- `npm run build`: `dist/` 빌드
+- `npm test`: 전체 test 실행
+
+## 프로젝트 구조
+
+```text
+src/
+├── cli/       # argument parsing과 summary
+├── scanner/   # read-only Markdown/path scan
+├── rules/     # validation rules
+├── config/    # hardcoded PoC baseline
+├── model/     # issue/result model
+└── report/    # Markdown report
+tests/         # unit/integration/E2E tests
+fixtures/      # public-safe acceptance fixtures
+reports/       # generated report output (Git ignored)
+```
+
+## 지원하지 않는 범위
+
+- JSON output
+- Configurable alias/rule configuration
+- LLM-assisted review
+- Auto-fix 또는 source mutation
+- CI integration
+- MCP/Plugin integration
+- Domain meaning judgement
+- 실제 회사 repository 또는 fixture 검증 사례 제공
+- Production readiness claim
+
+## Public safety
+
+- Generated report, `node_modules/`, `dist/`는 Git에서 제외됩니다.
+- 민감정보 검사는 conservative warning이며 실제 값을 자동 masking하지 않습니다.
+- Public 전환 전에는 repository history와 fixture를 별도로 검토해야 합니다.
+- 이 repository를 회사 공식 도구나 production migration validator로 표현하지 않습니다.
+
+## License
+
+현재 별도 license가 정의되지 않았습니다. 재배포 또는 공개 사용 범위는 repository 소유자 결정이 필요합니다.

@@ -223,6 +223,14 @@ reports/       # generated report output (Git ignored)
 - Public 전환 전에는 repository history와 fixture를 별도로 검토해야 합니다.
 - 이 repository를 회사 공식 도구나 production migration validator로 표현하지 않습니다.
 
+## 변경 이력
+
+### 0.2.0
+- heading **alias 지원**: 한글 heading(primary) + 영어(fallback) — 한글 이관 문서 통과, 기존 영어 문서도 그대로 검증
+- 신규 룰: `API_SPEC_TABLE`/`API_TASK_LINK`(02_Specify의 API 표·연결 task), `TASK_ID_TRIAD`(tasks.md의 API별 PLAN/IMPL/VAL), `PERMISSION_COMPLETION`/`PERMISSION_OPEN_QUESTION`(승인 게이트)
+- `prepare` 스크립트 추가 → `npx github:` 설치 시 dist 자동 빌드
+- 테스트 95 → 106
+
 ## License
 
 현재 별도 license가 정의되지 않았습니다. 재배포 또는 공개 사용 범위는 repository 소유자 결정이 필요합니다.

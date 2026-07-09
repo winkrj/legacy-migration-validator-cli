@@ -103,12 +103,23 @@ Scanner는 다음 원칙을 따릅니다.
 
 ## 설치
 
+바로 실행(GitHub에서 설치):
+
+```sh
+npx --yes github:winkrj/legacy-migration-validator-cli validate \
+  --root ./docs/migration/<case> \
+  --report ./reports/<case>-report.md
+```
+
+git 설치 시 `prepare` 스크립트가 `dist/`를 자동 빌드하므로 별도 빌드 없이 실행됩니다.
+
+로컬 개발:
+
 ```sh
 git clone <private-or-approved-repository-url>
 cd legacy-migration-validator-cli
 npm install
 npm run typecheck
-npm run build
 npm test
 ```
 

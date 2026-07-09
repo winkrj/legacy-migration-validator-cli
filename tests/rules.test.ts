@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { requiredDocuments } from "../src/config/requiredDocuments.js";
 import { requiredFields } from "../src/config/requiredFields.js";
-import { requiredSections } from "../src/config/requiredSections.js";
+import {
+  requiredSections,
+  sectionLabel,
+} from "../src/config/requiredSections.js";
+import { checkApiSpecTable } from "../src/rules/checkApiSpecTable.js";
 import { checkCanonicalTerms } from "../src/rules/checkCanonicalTerms.js";
+import { checkPermissionGate } from "../src/rules/checkPermissionGate.js";
+import { checkTaskTraceability } from "../src/rules/checkTaskTraceability.js";
 import { checkImplementationBoundary } from "../src/rules/checkImplementationBoundary.js";
 import { checkRequiredDocuments } from "../src/rules/checkRequiredDocuments.js";
 import { checkRequiredFields } from "../src/rules/checkRequiredFields.js";
@@ -31,13 +37,23 @@ function completeDocumentSet(): ScannedMarkdownFile[] {
   );
 }
 
+const compliantApiTable = [
+  "| API ID | Method/Path | 기능명 | 레거시 근거 | 요청 | 응답 | DB R/W | 외부연동 | 규칙 | empty/error | 미결(OQ) | Task |",
+  "|---|---|---|---|---|---|---|---|---|---|---|---|",
+  "| API-001 | GET /example | 예시 | ref | page | id | R: example | 없음 | 없음 | 빈 배열 | 없음 | PLAN-API-001, IMPL-API-001, VAL-API-001 |",
+].join("\n");
+
 function compliantContent(fileName: string): string {
   const sections = requiredSections[fileName] ?? [];
   const fields = requiredFields[fileName] ?? [];
 
   return [
-    ...sections.map((section, index) => `${"#".repeat(index % 3 + 1)} ${section}`),
+    ...sections.map(
+      (section, index) =>
+        `${"#".repeat((index % 3) + 1)} ${sectionLabel(section)}`,
+    ),
     ...fields.map((field) => `${field}: Not Started`),
+    ...(fileName === "02_Specify.md" ? [compliantApiTable] : []),
     "# Public-safe example",
   ].join("\n");
 }
@@ -391,5 +407,144 @@ describe("rule runner", () => {
         "STATUS_VOCABULARY",
       ]),
     );
+  });
+});
+
+describe("API spec table rule", () => {
+  it("passes when every API row has an API ID and a task link", () => {
+    expect(
+      checkApiSpecTable([
+        scannedFile(
+          "02_Specify.md",
+          `# Specify\n## API 상세 스펙\n${compliantApiTable}`,
+        ),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("errors when the API spec table is missing", () => {
+    const issues = checkApiSpecTable([
+      scannedFile(
+        "02_Specify.md",
+        "# Specify\n## API 상세 스펙\n\nNo API example is required.",
+      ),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      severity: "error",
+      ruleId: "API_SPEC_TABLE",
+    });
+  });
+
+  it("errors when an API row has no linked task", () => {
+    const table = [
+      "| API ID | Method/Path | Task |",
+      "|---|---|---|",
+      "| API-001 | GET /example |  |",
+    ].join("\n");
+    const issues = checkApiSpecTable([
+      scannedFile("02_Specify.md", `# Specify\n${table}`),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      severity: "error",
+      ruleId: "API_TASK_LINK",
+    });
+  });
+
+  it("ignores documents other than 02_Specify.md", () => {
+    expect(
+      checkApiSpecTable([
+        scannedFile("01_Discover.md", "# Discover\nNo table here."),
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe("task traceability rule", () => {
+  it("passes when each API has PLAN, IMPL and VAL tasks", () => {
+    expect(
+      checkTaskTraceability([
+        scannedFile(
+          "tasks.md",
+          "- [ ] PLAN-API-001\n- [ ] IMPL-API-001\n- [ ] VAL-API-001",
+        ),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("errors when a task kind is missing for an API", () => {
+    const issues = checkTaskTraceability([
+      scannedFile("tasks.md", "- [ ] PLAN-API-002\n- [ ] IMPL-API-002"),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      severity: "error",
+      ruleId: "TASK_ID_TRIAD",
+    });
+    expect(issues[0]?.message).toContain("VAL-API-002");
+  });
+
+  it("stays silent when no tasks.md is scanned", () => {
+    expect(
+      checkTaskTraceability([
+        scannedFile("03_Plan.md", "PLAN-API-003 mentioned but not tasks.md"),
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe("permission gate rule", () => {
+  it("errors when an IMPL task is completed without any granted permission", () => {
+    const issues = checkPermissionGate([
+      scannedFile("tasks.md", "- [x] IMPL-API-001 done"),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      severity: "error",
+      ruleId: "PERMISSION_COMPLETION",
+    });
+  });
+
+  it("accepts a completed IMPL task when permission is granted", () => {
+    expect(
+      checkPermissionGate([
+        scannedFile("tasks.md", "- [x] IMPL-API-001 done"),
+        scannedFile(
+          "03_Plan.md",
+          "Implementation Permission: Granted for Phase 12 Only",
+        ),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("does not gate a completed PLAN task", () => {
+    expect(
+      checkPermissionGate([
+        scannedFile("tasks.md", "- [x] PLAN-API-001 done"),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("errors when permission is granted while an Open Question is unresolved", () => {
+    const openQuestions = [
+      "| ID | Question | Status |",
+      "|---|---|---|",
+      "| OQ-001 | decision | Open |",
+    ].join("\n");
+    const issues = checkPermissionGate([
+      scannedFile("99_Open-Questions.md", `# Open Questions\n${openQuestions}`),
+      scannedFile("03_Plan.md", "Implementation Permission: Granted"),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      severity: "error",
+      ruleId: "PERMISSION_OPEN_QUESTION",
+    });
   });
 });

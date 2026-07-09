@@ -11,8 +11,17 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { requiredDocuments } from "../src/config/requiredDocuments.js";
 import { requiredFields } from "../src/config/requiredFields.js";
-import { requiredSections } from "../src/config/requiredSections.js";
+import {
+  requiredSections,
+  sectionLabel,
+} from "../src/config/requiredSections.js";
 import { runCli, type CliIo } from "../src/index.js";
+
+const compliantApiTable = [
+  "| API ID | Method/Path | Task |",
+  "|---|---|---|",
+  "| API-001 | GET /example | PLAN-API-001, IMPL-API-001, VAL-API-001 |",
+].join("\n");
 
 const temporaryPaths: string[] = [];
 
@@ -50,8 +59,9 @@ function createRequiredDocuments(root: string): void {
     writeFileSync(
       join(root, fileName),
       [
-        ...sections.map((section) => `## ${section}`),
+        ...sections.map((section) => `## ${sectionLabel(section)}`),
         ...fields.map((field) => `${field}: Not Started`),
+        ...(fileName === "02_Specify.md" ? [compliantApiTable] : []),
         "# Public-safe example",
       ].join("\n"),
     );

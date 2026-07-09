@@ -1,4 +1,8 @@
-import { requiredSections } from "../config/requiredSections.js";
+import {
+  requiredSections,
+  sectionAliases,
+  sectionLabel,
+} from "../config/requiredSections.js";
 import type { ValidationIssue } from "../model/ValidationIssue.js";
 import type { ScannedMarkdownFile } from "../scanner/scanMarkdownFiles.js";
 
@@ -15,16 +19,20 @@ export function checkRequiredSections(
 
     const headings = extractHeadings(file.content);
     for (const section of sections) {
-      if (headings.has(section)) {
+      const aliases = sectionAliases(section);
+      if (aliases.some((alias) => headings.has(alias))) {
         continue;
       }
 
       issues.push({
         severity: "error",
         ruleId: "REQUIRED_SECTION",
-        message: `Required section is missing: ${section}`,
+        message: `Required section is missing: ${sectionLabel(section)}`,
         file: file.relativePath,
-        details: `Expected Markdown heading: ${section}`,
+        details:
+          aliases.length > 1
+            ? `Expected Markdown heading (one of): ${aliases.join(" | ")}`
+            : `Expected Markdown heading: ${aliases[0]}`,
       });
     }
   }

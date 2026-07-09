@@ -51,6 +51,19 @@
 
 전체 baseline은 [`src/config`](./src/config)에서 확인할 수 있습니다.
 
+필수 heading은 한글/영어 alias를 함께 허용합니다. 예를 들어 `02_Specify.md`의 API 스펙 섹션은 `API 상세 스펙`(한글) 또는 `API Map`/`API Spec`(영어) 중 하나면 통과합니다. Status 값, Given/When/Then 같은 고정 토큰은 영어를 유지합니다.
+
+### API 단위 스펙과 task 추적
+
+- `02_Specify.md`에 API 상세 스펙 표(`API ID`, `Task` 열 포함)가 없으면 error(`API_SPEC_TABLE`)입니다.
+- 표의 각 API 행에 API ID(`API-NNN`)나 연결 task ID(`PLAN|IMPL|VAL-API-NNN`)가 없으면 error(`API_TASK_LINK`)입니다.
+- `tasks.md`가 스캔되면 각 API 번호가 `PLAN`/`IMPL`/`VAL` task를 모두 갖는지 검사합니다(`TASK_ID_TRIAD`). `tasks.md`가 root 밖이면 조용히 넘어갑니다.
+
+### 승인 게이트
+
+- 어디에도 Implementation Permission이 `Granted`되지 않았는데 IMPL task가 완료(`- [x]`)로 표시되면 error(`PERMISSION_COMPLETION`)입니다.
+- 미해결(`Open`) Open Question이 있는데 Implementation Permission이 `Granted`이면 error(`PERMISSION_OPEN_QUESTION`)입니다.
+
 ### Vocabulary와 boundary
 
 - 승인된 status vocabulary가 아닌 값은 error로 기록합니다.
@@ -60,7 +73,7 @@
 
 ### Severity
 
-- `error`: 필수 문서·section·field 또는 vocabulary 위반
+- `error`: 필수 문서·section·field, vocabulary, API 스펙 표/task 연결, 승인 게이트 위반
 - `warning`: alias, 단계 경계 충돌 또는 민감정보 후보
 
 Warning만 존재하면 CLI exit code는 `0`입니다.

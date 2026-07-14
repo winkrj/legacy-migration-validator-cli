@@ -7,6 +7,8 @@ import {
 } from "../src/config/requiredSections.js";
 import { checkApiSpecTable } from "../src/rules/checkApiSpecTable.js";
 import { checkCanonicalTerms } from "../src/rules/checkCanonicalTerms.js";
+import { checkEvidenceCitation } from "../src/rules/checkEvidenceCitation.js";
+import { checkExternalRouteMatrix } from "../src/rules/checkExternalRouteMatrix.js";
 import { checkPermissionGate } from "../src/rules/checkPermissionGate.js";
 import { checkTaskTraceability } from "../src/rules/checkTaskTraceability.js";
 import { checkImplementationBoundary } from "../src/rules/checkImplementationBoundary.js";
@@ -40,7 +42,7 @@ function completeDocumentSet(): ScannedMarkdownFile[] {
 const compliantApiTable = [
   "| API ID | Method/Path | 기능명 | 레거시 근거 | 요청 | 응답 | DB R/W | 외부연동 | 규칙 | empty/error | 미결(OQ) | Task |",
   "|---|---|---|---|---|---|---|---|---|---|---|---|",
-  "| API-001 | GET /example | 예시 | ref | page | id | R: example | 없음 | 없음 | 빈 배열 | 없음 | PLAN-API-001, IMPL-API-001, VAL-API-001 |",
+  "| API-001 | GET /example | 예시 | `ExampleMapper.xml:12` \"select\" | page | id | R: example | 없음 | 없음 | 빈 배열 | 없음 | PLAN-API-001, IMPL-API-001, VAL-API-001 |",
 ].join("\n");
 
 function compliantContent(fileName: string): string {
@@ -492,6 +494,94 @@ describe("task traceability rule", () => {
     expect(
       checkTaskTraceability([
         scannedFile("03_Plan.md", "PLAN-API-003 mentioned but not tasks.md"),
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe("evidence citation rule", () => {
+  const header = "| API ID | 레거시 근거 | Task |\n|---|---|---|";
+
+  it("passes when evidence has a file:line citation", () => {
+    expect(
+      checkEvidenceCitation([
+        scannedFile(
+          "02_Specify.md",
+          `${header}\n| API-001 | \`SiteController.java:120\` "call()" | PLAN-API-001 |`,
+        ),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("warns when evidence is prose without a citation", () => {
+    const issues = checkEvidenceCitation([
+      scannedFile(
+        "02_Specify.md",
+        `${header}\n| API-001 | SiteController가 호출함 | PLAN-API-001 |`,
+      ),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      severity: "warning",
+      ruleId: "EVIDENCE_CITATION",
+    });
+  });
+
+  it("ignores template placeholders", () => {
+    expect(
+      checkEvidenceCitation([
+        scannedFile(
+          "02_Specify.md",
+          `${header}\n| API-001 | <JSP/controller 근거> | PLAN-API-001 |`,
+        ),
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe("external route matrix rule", () => {
+  const table = (external: string) =>
+    [
+      "| API ID | 외부 연동 | Task |",
+      "|---|---|---|",
+      `| API-001 | ${external} | PLAN-API-001 |`,
+    ].join("\n");
+
+  it("does not require the matrix when there is no external integration", () => {
+    expect(
+      checkExternalRouteMatrix([
+        scannedFile("02_Specify.md", table("없음")),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("errors when an external integration exists without the matrix section", () => {
+    const issues = checkExternalRouteMatrix([
+      scannedFile("02_Specify.md", table("FCM")),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      severity: "error",
+      ruleId: "EXTERNAL_ROUTE_MATRIX",
+    });
+  });
+
+  it("passes when the matrix section exists (Korean alias too)", () => {
+    for (const heading of ["External Route Matrix", "외부 연동 경로"]) {
+      expect(
+        checkExternalRouteMatrix([
+          scannedFile("02_Specify.md", `## ${heading}\n${table("FCM")}`),
+        ]),
+      ).toEqual([]);
+    }
+  });
+
+  it("treats placeholders as undecided, not external", () => {
+    expect(
+      checkExternalRouteMatrix([
+        scannedFile("02_Specify.md", table("<없음 또는 대상>")),
       ]),
     ).toEqual([]);
   });

@@ -5,6 +5,8 @@ import {
 import type { ScannedMarkdownFile } from "../scanner/scanMarkdownFiles.js";
 import { checkApiSpecTable } from "./checkApiSpecTable.js";
 import { checkCanonicalTerms } from "./checkCanonicalTerms.js";
+import { checkEvidenceCitation } from "./checkEvidenceCitation.js";
+import { checkExternalRouteMatrix } from "./checkExternalRouteMatrix.js";
 import { checkImplementationBoundary } from "./checkImplementationBoundary.js";
 import { checkPermissionGate } from "./checkPermissionGate.js";
 import { checkRequiredDocuments } from "./checkRequiredDocuments.js";
@@ -24,6 +26,8 @@ export function runRules(
     ...checkStatusVocabulary(files),
     ...checkImplementationBoundary(files),
     ...checkApiSpecTable(files),
+    ...checkEvidenceCitation(files),
+    ...checkExternalRouteMatrix(files),
     ...checkTaskTraceability(files),
     ...checkPermissionGate(files),
     ...checkSensitivePatterns(files),

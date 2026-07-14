@@ -58,6 +58,8 @@
 - `02_Specify.md`에 API 상세 스펙 표(`API ID`, `Task` 열 포함)가 없으면 error(`API_SPEC_TABLE`)입니다.
 - 표의 각 API 행에 API ID(`API-NNN`)나 연결 task ID(`PLAN|IMPL|VAL-API-NNN`)가 없으면 error(`API_TASK_LINK`)입니다.
 - `tasks.md`가 스캔되면 각 API 번호가 `PLAN`/`IMPL`/`VAL` task를 모두 갖는지 검사합니다(`TASK_ID_TRIAD`). `tasks.md`가 root 밖이면 조용히 넘어갑니다.
+- 레거시 근거 열에 `파일:라인` 인용 패턴이 없으면 warning(`EVIDENCE_CITATION`)입니다 — 형식만 검사하며 인용의 진실성은 사람이 발췌 확인합니다.
+- 외부 연동이 있는 API가 있는데 `External Route Matrix`(또는 `외부 연동 경로`) 섹션이 없으면 error(`EXTERNAL_ROUTE_MATRIX`)입니다.
 
 ### 승인 게이트
 
@@ -224,6 +226,11 @@ reports/       # generated report output (Git ignored)
 - 이 repository를 회사 공식 도구나 production migration validator로 표현하지 않습니다.
 
 ## 변경 이력
+
+### 0.3.0
+- `EVIDENCE_CITATION`(warning): API 스펙 표의 레거시 근거에 `파일:라인` 인용 패턴이 없으면 경고 — "인용 없는 근거는 근거가 아니다" (형식만 검사, 진실성은 사람이 확인)
+- `EXTERNAL_ROUTE_MATRIX`(error): 외부 연동이 있는 API가 있는데 `External Route Matrix`(또는 `외부 연동 경로`) 섹션이 없으면 실패 — 직접 vs 프록시, 환경별 host를 스펙 단계에서 확정
+- 테스트 106 → 113
 
 ### 0.2.0
 - heading **alias 지원**: 한글 heading(primary) + 영어(fallback) — 한글 이관 문서 통과, 기존 영어 문서도 그대로 검증

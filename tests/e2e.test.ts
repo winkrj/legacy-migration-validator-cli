@@ -122,6 +122,7 @@ describe("public-safe fixture acceptance", () => {
     expect(result.reportContent).toContain("CANONICAL_TERM");
     expect(result.reportContent).toContain("IMPLEMENTATION_BOUNDARY");
     expect(result.reportContent).toContain("SENSITIVE_PATTERN");
+    expect(result.reportContent).toContain("EVIDENCE_CITATION");
     expect(result.after).toEqual(result.before);
   });
 });

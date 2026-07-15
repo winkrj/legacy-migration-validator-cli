@@ -3,6 +3,7 @@ import {
   type ValidationResult,
 } from "../model/ValidationResult.js";
 import type { ScannedMarkdownFile } from "../scanner/scanMarkdownFiles.js";
+import { checkAcCoverage } from "./checkAcCoverage.js";
 import { checkApiDetailSections } from "./checkApiDetailSections.js";
 import { checkApiSpecTable } from "./checkApiSpecTable.js";
 import { checkCanonicalTerms } from "./checkCanonicalTerms.js";
@@ -31,6 +32,7 @@ export function runRules(
     ...checkEvidenceCitation(files),
     ...checkExternalRouteMatrix(files),
     ...checkTaskTraceability(files),
+    ...checkAcCoverage(files),
     ...checkPermissionGate(files),
     ...checkSensitivePatterns(files),
     ...checkCanonicalTerms(files),

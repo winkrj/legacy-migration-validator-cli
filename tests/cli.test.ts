@@ -69,6 +69,7 @@ function createRequiredDocuments(root: string): void {
         ...sections.map((section) => `## ${sectionLabel(section)}`),
         ...fields.map((field) => `${field}: Not Started`),
         ...(fileName === "02_Specify.md" ? [compliantApiTable] : []),
+        ...(fileName === "05_Validate.md" ? ["AC 없음"] : []),
         "# Public-safe example",
       ].join("\n"),
     );
@@ -315,6 +316,35 @@ describe("CLI argument and read-only path boundary", () => {
     expect(readFileSync(report, "utf8")).toContain(
       "## Read-only Guarantee",
     );
+  });
+
+  it("accepts multiple --root options and scans both", () => {
+    const docsRoot = temporaryDirectory();
+    const changesRoot = temporaryDirectory();
+    const output = temporaryDirectory();
+    createRequiredDocuments(docsRoot);
+    writeFileSync(
+      join(changesRoot, "tasks.md"),
+      "- [ ] PLAN-API-001\n- [ ] IMPL-API-001",
+    );
+
+    const result = execute([
+      "validate",
+      "--root",
+      docsRoot,
+      "--root",
+      changesRoot,
+      "--report",
+      join(output, "report.md"),
+    ]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain(`Root: ${realpathSync(docsRoot)}`);
+    expect(result.stdout).toContain(`Root: ${realpathSync(changesRoot)}`);
+    expect(result.stdout).toContain("Markdown files scanned: 9");
+    const report = readFileSync(join(output, "report.md"), "utf8");
+    expect(report).toContain("TASK_ID_TRIAD");
+    expect(report).toContain("VAL-API-001");
   });
 
   it("does not write a report when CLI validation fails", () => {

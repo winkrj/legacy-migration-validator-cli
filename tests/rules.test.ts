@@ -5,6 +5,7 @@ import {
   requiredSections,
   sectionLabel,
 } from "../src/config/requiredSections.js";
+import { checkAcCoverage } from "../src/rules/checkAcCoverage.js";
 import { checkApiDetailSections } from "../src/rules/checkApiDetailSections.js";
 import { checkApiSpecTable } from "../src/rules/checkApiSpecTable.js";
 import { checkCanonicalTerms } from "../src/rules/checkCanonicalTerms.js";
@@ -75,6 +76,7 @@ function compliantContent(fileName: string): string {
     ...(fileName === "02_Specify.md"
       ? [compliantApiTable, compliantApiDetail]
       : []),
+    ...(fileName === "05_Validate.md" ? ["AC-001-1: Not Run"] : []),
     "# Public-safe example",
   ].join("\n");
 }
@@ -655,6 +657,91 @@ describe("external route matrix rule", () => {
     expect(
       checkExternalRouteMatrix([
         scannedFile("02_Specify.md", table("<없음 또는 대상>")),
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe("ac coverage rule", () => {
+  const spec = (relativePath: string) =>
+    scannedFile(
+      "02_Specify.md",
+      "#### Acceptance Criteria\n- AC-001-1: a\n- AC-001-2: b",
+      relativePath,
+    );
+
+  it("passes when every defined AC appears in 05_Validate", () => {
+    expect(
+      checkAcCoverage([
+        spec("case/02_Specify.md"),
+        scannedFile(
+          "05_Validate.md",
+          "| AC-001-1 | Not Run |\n| AC-001-2 | Not Run |",
+          "case/05_Validate.md",
+        ),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("warns listing ACs missing from 05_Validate", () => {
+    const issues = checkAcCoverage([
+      spec("case/02_Specify.md"),
+      scannedFile(
+        "05_Validate.md",
+        "| AC-001-1 | Not Run |",
+        "case/05_Validate.md",
+      ),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      severity: "warning",
+      ruleId: "AC_COVERAGE",
+    });
+    expect(issues[0]?.message).toContain("AC-001-2");
+  });
+
+  it("pairs spec and validate documents per case directory", () => {
+    const issues = checkAcCoverage([
+      spec("case-a/02_Specify.md"),
+      scannedFile(
+        "05_Validate.md",
+        "AC-001-1 AC-001-2",
+        "case-a/05_Validate.md",
+      ),
+      spec("case-b/02_Specify.md"),
+      scannedFile("05_Validate.md", "none", "case-b/05_Validate.md"),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.file).toBe("case-b/05_Validate.md");
+  });
+});
+
+describe("call flow citation", () => {
+  it("warns when a call flow block has no citation", () => {
+    const issues = checkEvidenceCitation([
+      scannedFile(
+        "02_Specify.md",
+        "#### 레거시 호출 흐름\nController에서 Service를 호출함\n#### 오류·빈 결과",
+      ),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      severity: "warning",
+      ruleId: "EVIDENCE_CITATION",
+      line: 1,
+    });
+  });
+
+  it("passes when the call flow block cites file:line", () => {
+    expect(
+      checkEvidenceCitation([
+        scannedFile(
+          "02_Specify.md",
+          "#### 레거시 호출 흐름\n`XxxController.java:120` → `XxxMapper.xml:34`",
+        ),
       ]),
     ).toEqual([]);
   });

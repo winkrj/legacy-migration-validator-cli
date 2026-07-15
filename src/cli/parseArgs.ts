@@ -13,7 +13,7 @@ import {
 } from "node:path";
 
 export const USAGE =
-  "Usage: legacy-validator validate --root <path> --report <path>";
+  "Usage: legacy-validator validate --root <path> [--root <path> ...] --report <path>";
 
 export class CliUsageError extends Error {
   readonly exitCode = 2;
@@ -26,12 +26,12 @@ export class CliUsageError extends Error {
 
 export interface CliArguments {
   command: "validate";
-  root: string;
+  roots: string[];
   report: string;
 }
 
 export interface ValidatedCliArguments extends CliArguments {
-  root: string;
+  roots: string[];
   report: string;
 }
 
@@ -47,15 +47,13 @@ export function parseArgs(args: readonly string[]): CliArguments {
     throw new CliUsageError(`Unknown command: ${command}`);
   }
 
-  const values = new Map<string, string>();
+  const roots: string[] = [];
+  let report: string | undefined;
 
   for (let index = 0; index < options.length; index += 1) {
     const option = options[index];
     if (option === undefined || !supportedOptions.has(option)) {
       throw new CliUsageError(`Unknown option: ${option ?? ""}`);
-    }
-    if (values.has(option)) {
-      throw new CliUsageError(`Duplicate option: ${option}`);
     }
 
     const value = options[index + 1];
@@ -63,47 +61,58 @@ export function parseArgs(args: readonly string[]): CliArguments {
       throw new CliUsageError(`Missing value after ${option}.`);
     }
 
-    values.set(option, value);
+    if (option === "--root") {
+      roots.push(value);
+    } else {
+      if (report !== undefined) {
+        throw new CliUsageError("Duplicate option: --report");
+      }
+      report = value;
+    }
     index += 1;
   }
 
-  const root = values.get("--root");
-  const report = values.get("--report");
-  if (root === undefined) {
+  if (roots.length === 0) {
     throw new CliUsageError("Missing required option: --root.");
   }
   if (report === undefined) {
     throw new CliUsageError("Missing required option: --report.");
   }
 
-  return { command, root, report };
+  return { command, roots, report };
 }
 
 export function validatePaths(args: CliArguments): ValidatedCliArguments {
-  const requestedRoot = resolve(args.root);
-  if (!existsSync(requestedRoot)) {
-    throw new CliUsageError(`Root path does not exist: ${requestedRoot}`);
-  }
-  if (!statSync(requestedRoot).isDirectory()) {
-    throw new CliUsageError(`Root path is not a directory: ${requestedRoot}`);
-  }
+  const roots = args.roots.map((requested) => {
+    const requestedRoot = resolve(requested);
+    if (!existsSync(requestedRoot)) {
+      throw new CliUsageError(`Root path does not exist: ${requestedRoot}`);
+    }
+    if (!statSync(requestedRoot).isDirectory()) {
+      throw new CliUsageError(
+        `Root path is not a directory: ${requestedRoot}`,
+      );
+    }
+    return realpathSync(requestedRoot);
+  });
 
-  const root = realpathSync(requestedRoot);
   const report = resolveProspectivePath(args.report);
-  const reportRelativeToRoot = relative(root, report);
-  const reportIsInsideRoot =
-    reportRelativeToRoot === "" ||
-    (!reportRelativeToRoot.startsWith(`..${sep}`) &&
-      reportRelativeToRoot !== ".." &&
-      !isAbsolute(reportRelativeToRoot));
+  for (const root of roots) {
+    const reportRelativeToRoot = relative(root, report);
+    const reportIsInsideRoot =
+      reportRelativeToRoot === "" ||
+      (!reportRelativeToRoot.startsWith(`..${sep}`) &&
+        reportRelativeToRoot !== ".." &&
+        !isAbsolute(reportRelativeToRoot));
 
-  if (reportIsInsideRoot) {
-    throw new CliUsageError(
-      "Report path must be outside the input root.",
-    );
+    if (reportIsInsideRoot) {
+      throw new CliUsageError(
+        "Report path must be outside the input root.",
+      );
+    }
   }
 
-  return { ...args, root, report };
+  return { ...args, roots, report };
 }
 
 function resolveProspectivePath(inputPath: string): string {

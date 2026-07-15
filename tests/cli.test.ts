@@ -21,6 +21,13 @@ const compliantApiTable = [
   "| API ID | Method/Path | Task |",
   "|---|---|---|",
   "| API-001 | GET /example | PLAN-API-001, IMPL-API-001, VAL-API-001 |",
+  "### API-001 예시",
+  "#### 시나리오",
+  "#### Request",
+  "#### Response",
+  "#### 오류·빈 결과",
+  "#### Acceptance Criteria",
+  "#### 연결 Task",
 ].join("\n");
 
 const temporaryPaths: string[] = [];

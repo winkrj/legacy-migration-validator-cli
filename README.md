@@ -227,6 +227,11 @@ reports/       # generated report output (Git ignored)
 
 ## 변경 이력
 
+### 0.4.0
+- `API_DETAIL_SECTION`(error): SDD 구조 검사 — API 목록 표의 모든 API ID마다 `### API-NNN` 상세 섹션과 필수 하위 섹션(시나리오/Request/Response/오류·빈 결과/Acceptance Criteria/연결 Task) 존재 확인. "표 한 행은 색인일 뿐 계약이 아니다"
+- `02_Specify.md` 필수 섹션 개편: 공통 규칙 / API 목록 / API별 상세 스펙 (기존 영어 alias 유지)
+- 테스트 113 → 117
+
 ### 0.3.0
 - `EVIDENCE_CITATION`(warning): API 스펙 표의 레거시 근거에 `파일:라인` 인용 패턴이 없으면 경고 — "인용 없는 근거는 근거가 아니다" (형식만 검사, 진실성은 사람이 확인)
 - `EXTERNAL_ROUTE_MATRIX`(error): 외부 연동이 있는 API가 있는데 `External Route Matrix`(또는 `외부 연동 경로`) 섹션이 없으면 실패 — 직접 vs 프록시, 환경별 host를 스펙 단계에서 확정

@@ -5,6 +5,7 @@ import {
   requiredSections,
   sectionLabel,
 } from "../src/config/requiredSections.js";
+import { checkApiDetailSections } from "../src/rules/checkApiDetailSections.js";
 import { checkApiSpecTable } from "../src/rules/checkApiSpecTable.js";
 import { checkCanonicalTerms } from "../src/rules/checkCanonicalTerms.js";
 import { checkEvidenceCitation } from "../src/rules/checkEvidenceCitation.js";
@@ -45,6 +46,22 @@ const compliantApiTable = [
   "| API-001 | GET /example | 예시 | `ExampleMapper.xml:12` \"select\" | page | id | R: example | 없음 | 없음 | 빈 배열 | 없음 | PLAN-API-001, IMPL-API-001, VAL-API-001 |",
 ].join("\n");
 
+const compliantApiDetail = [
+  "### API-001 예시",
+  "#### 시나리오",
+  "- Given/When/Then",
+  "#### Request",
+  "- page",
+  "#### Response",
+  "- id",
+  "#### 오류·빈 결과",
+  "- 빈 배열",
+  "#### Acceptance Criteria",
+  "- AC-001-1",
+  "#### 연결 Task",
+  "- PLAN-API-001 / IMPL-API-001 / VAL-API-001",
+].join("\n");
+
 function compliantContent(fileName: string): string {
   const sections = requiredSections[fileName] ?? [];
   const fields = requiredFields[fileName] ?? [];
@@ -55,7 +72,9 @@ function compliantContent(fileName: string): string {
         `${"#".repeat((index % 3) + 1)} ${sectionLabel(section)}`,
     ),
     ...fields.map((field) => `${field}: Not Started`),
-    ...(fileName === "02_Specify.md" ? [compliantApiTable] : []),
+    ...(fileName === "02_Specify.md"
+      ? [compliantApiTable, compliantApiDetail]
+      : []),
     "# Public-safe example",
   ].join("\n");
 }
@@ -494,6 +513,60 @@ describe("task traceability rule", () => {
     expect(
       checkTaskTraceability([
         scannedFile("03_Plan.md", "PLAN-API-003 mentioned but not tasks.md"),
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe("api detail section rule", () => {
+  it("passes when every indexed API has a detail section with required subsections", () => {
+    expect(
+      checkApiDetailSections([
+        scannedFile(
+          "02_Specify.md",
+          `${compliantApiTable}\n${compliantApiDetail}`,
+        ),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("errors when an indexed API has no detail section", () => {
+    const issues = checkApiDetailSections([
+      scannedFile("02_Specify.md", compliantApiTable),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      severity: "error",
+      ruleId: "API_DETAIL_SECTION",
+    });
+    expect(issues[0]?.message).toContain("API-001");
+  });
+
+  it("errors listing the missing required subsections", () => {
+    const partialDetail = [
+      "### API-001 예시",
+      "#### 시나리오",
+      "- Given/When/Then",
+      "#### Request",
+      "- page",
+    ].join("\n");
+    const issues = checkApiDetailSections([
+      scannedFile(
+        "02_Specify.md",
+        `${compliantApiTable}\n${partialDetail}`,
+      ),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.message).toContain("Response");
+    expect(issues[0]?.message).toContain("Acceptance Criteria");
+  });
+
+  it("does nothing when there is no API index table", () => {
+    expect(
+      checkApiDetailSections([
+        scannedFile("02_Specify.md", "# Specify\nNo table."),
       ]),
     ).toEqual([]);
   });

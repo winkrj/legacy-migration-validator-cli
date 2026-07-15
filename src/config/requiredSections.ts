@@ -17,9 +17,10 @@ export const requiredSections: Readonly<
   ],
   "02_Specify.md": [
     ["상태", "Status"],
+    ["공통 규칙", "Common Rules"],
     ["도메인 규칙", "Domain Rules"],
-    ["API 상세 스펙", "API 계약", "API Spec", "API Map"],
-    ["데이터 매핑", "DB Map"],
+    ["API 목록", "API 상세 스펙", "API 계약", "API Spec", "API Map"],
+    ["API별 상세 스펙", "API Details"],
     ["미결 질문", "Open Questions"],
   ],
   "03_Plan.md": [

@@ -229,6 +229,12 @@ reports/       # generated report output (Git ignored)
 
 ## 변경 이력
 
+### 0.6.0
+- `DISCOVERY_CHECKLIST`(warning): `01_Discover.md`의 심문 체크리스트에서 답변·인용이 비었거나 미확인(OQ) 표시가 없는 행을 지적 — **빈 칸은 "안 물어봤다"는 뜻**
+- `IMPROVEMENT_LEDGER`(warning): `07_Improvements.md`가 있을 때 개선 후보의 근거 인용 누락, 그리고 `Approved`인데 연결 task가 없는 항목을 지적 (이관 task와 분리 강제)
+- 두 룰 모두 하위 호환을 위해 warning — 기존 케이스 문서를 깨지 않는다
+- 테스트 123 → 131
+
 ### 0.5.0
 - **`--root` 다중 지정 지원** — 케이스 문서와 OpenSpec change(tasks.md)를 한 번에 검사. tasks.md가 검사에 포함돼야 `TASK_ID_TRIAD`·권한 게이트 룰이 실제로 동작한다
 - `AC_COVERAGE`(warning): 02_Specify에 정의된 Acceptance Criteria가 같은 케이스의 05_Validate에 전부 기록됐는지 대조 — 커버 안 된 AC를 보이게 한다

@@ -7,6 +7,8 @@ import { checkAcCoverage } from "./checkAcCoverage.js";
 import { checkApiDetailSections } from "./checkApiDetailSections.js";
 import { checkApiSpecTable } from "./checkApiSpecTable.js";
 import { checkCanonicalTerms } from "./checkCanonicalTerms.js";
+import { checkDiscoveryChecklist } from "./checkDiscoveryChecklist.js";
+import { checkImprovementLedger } from "./checkImprovementLedger.js";
 import { checkEvidenceCitation } from "./checkEvidenceCitation.js";
 import { checkExternalRouteMatrix } from "./checkExternalRouteMatrix.js";
 import { checkImplementationBoundary } from "./checkImplementationBoundary.js";
@@ -33,6 +35,8 @@ export function runRules(
     ...checkExternalRouteMatrix(files),
     ...checkTaskTraceability(files),
     ...checkAcCoverage(files),
+    ...checkDiscoveryChecklist(files),
+    ...checkImprovementLedger(files),
     ...checkPermissionGate(files),
     ...checkSensitivePatterns(files),
     ...checkCanonicalTerms(files),

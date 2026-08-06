@@ -6,6 +6,8 @@ import {
   sectionLabel,
 } from "../src/config/requiredSections.js";
 import { checkAcCoverage } from "../src/rules/checkAcCoverage.js";
+import { checkDiscoveryChecklist } from "../src/rules/checkDiscoveryChecklist.js";
+import { checkImprovementLedger } from "../src/rules/checkImprovementLedger.js";
 import { checkApiDetailSections } from "../src/rules/checkApiDetailSections.js";
 import { checkApiSpecTable } from "../src/rules/checkApiSpecTable.js";
 import { checkCanonicalTerms } from "../src/rules/checkCanonicalTerms.js";
@@ -47,6 +49,12 @@ const compliantApiTable = [
   "| API-001 | GET /example | 예시 | `ExampleMapper.xml:12` \"select\" | page | id | R: example | 없음 | 없음 | 빈 배열 | 없음 | PLAN-API-001, IMPL-API-001, VAL-API-001 |",
 ].join("\n");
 
+const compliantChecklist = [
+  "| # | 질문 | 답변 | 근거 | 상태 |",
+  "|---|---|---|---|---|",
+  "| 1 | 호출 화면은? | 예시 | `list.jsp:42` | 확인 |",
+].join("\n");
+
 const compliantApiDetail = [
   "### API-001 예시",
   "#### 시나리오",
@@ -76,6 +84,7 @@ function compliantContent(fileName: string): string {
     ...(fileName === "02_Specify.md"
       ? [compliantApiTable, compliantApiDetail]
       : []),
+    ...(fileName === "01_Discover.md" ? [compliantChecklist] : []),
     ...(fileName === "05_Validate.md" ? ["AC-001-1: Not Run"] : []),
     "# Public-safe example",
   ].join("\n");
@@ -742,6 +751,104 @@ describe("call flow citation", () => {
           "02_Specify.md",
           "#### 레거시 호출 흐름\n`XxxController.java:120` → `XxxMapper.xml:34`",
         ),
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe("discovery checklist rule", () => {
+  const header = "| # | 질문 | 답변 | 근거 | 상태 |\n|---|---|---|---|---|";
+
+  it("passes when answers carry a file:line citation", () => {
+    expect(
+      checkDiscoveryChecklist([
+        scannedFile(
+          "01_Discover.md",
+          `${header}\n| 1 | 호출 화면은? | list.jsp의 조회 버튼 | \`list.jsp:42\` | 확인 |`,
+        ),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("accepts an explicit unknown linked to an open question", () => {
+    expect(
+      checkDiscoveryChecklist([
+        scannedFile(
+          "01_Discover.md",
+          `${header}\n| 1 | 최대 page size는? | 미확인 | | OQ-003 |`,
+        ),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("warns for rows left blank", () => {
+    const issues = checkDiscoveryChecklist([
+      scannedFile("01_Discover.md", `${header}\n| 1 | 정렬 tie-breaker는? | | | |`),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      severity: "warning",
+      ruleId: "DISCOVERY_CHECKLIST",
+    });
+  });
+
+  it("warns when the checklist table is absent", () => {
+    const issues = checkDiscoveryChecklist([
+      scannedFile("01_Discover.md", "# Discover\n분석했습니다."),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.message).toContain("심문 체크리스트");
+  });
+});
+
+describe("improvement ledger rule", () => {
+  const header =
+    "| ID | 유형 | 근거 | 승인 상태 | 연결 Task |\n|---|---|---|---|---|";
+
+  it("passes for a cited, unapproved candidate", () => {
+    expect(
+      checkImprovementLedger([
+        scannedFile(
+          "07_Improvements.md",
+          `${header}\n| IMP-001 | N+1 | \`Svc.java:112\` "loop" | Not Approved | |`,
+        ),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("warns when an improvement has no citation", () => {
+    const issues = checkImprovementLedger([
+      scannedFile(
+        "07_Improvements.md",
+        `${header}\n| IMP-001 | 캐싱 | 느려 보임 | Not Approved | |`,
+      ),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      severity: "warning",
+      ruleId: "IMPROVEMENT_LEDGER",
+    });
+  });
+
+  it("warns when an approved improvement has no separate task", () => {
+    const issues = checkImprovementLedger([
+      scannedFile(
+        "07_Improvements.md",
+        `${header}\n| IMP-001 | N+1 | \`Svc.java:112\` "loop" | Approved | |`,
+      ),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.message).toContain("연결 task");
+  });
+
+  it("ignores documents other than 07_Improvements.md", () => {
+    expect(
+      checkImprovementLedger([
+        scannedFile("01_Discover.md", `${header}\n| IMP-001 | N+1 | 없음 | Approved | |`),
       ]),
     ).toEqual([]);
   });

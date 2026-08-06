@@ -69,6 +69,13 @@ function createRequiredDocuments(root: string): void {
         ...sections.map((section) => `## ${sectionLabel(section)}`),
         ...fields.map((field) => `${field}: Not Started`),
         ...(fileName === "02_Specify.md" ? [compliantApiTable] : []),
+        ...(fileName === "01_Discover.md"
+          ? [
+              "| # | 질문 | 답변 | 근거 | 상태 |",
+              "|---|---|---|---|---|",
+              "| 1 | 호출 화면은? | 예시 | `list.jsp:42` | 확인 |",
+            ]
+          : []),
         ...(fileName === "05_Validate.md" ? ["AC 없음"] : []),
         "# Public-safe example",
       ].join("\n"),

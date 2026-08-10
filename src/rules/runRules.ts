@@ -19,6 +19,7 @@ import { checkRequiredSections } from "./checkRequiredSections.js";
 import { checkSensitivePatterns } from "./checkSensitivePatterns.js";
 import { checkStatusVocabulary } from "./checkStatusVocabulary.js";
 import { checkTaskTraceability } from "./checkTaskTraceability.js";
+import { checkVerifyReport } from "./checkVerifyReport.js";
 
 export function runRules(
   files: readonly ScannedMarkdownFile[],
@@ -38,6 +39,7 @@ export function runRules(
     ...checkDiscoveryChecklist(files),
     ...checkImprovementLedger(files),
     ...checkPermissionGate(files),
+    ...checkVerifyReport(files),
     ...checkSensitivePatterns(files),
     ...checkCanonicalTerms(files),
   ]);

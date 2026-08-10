@@ -15,6 +15,7 @@ import { checkEvidenceCitation } from "../src/rules/checkEvidenceCitation.js";
 import { checkExternalRouteMatrix } from "../src/rules/checkExternalRouteMatrix.js";
 import { checkPermissionGate } from "../src/rules/checkPermissionGate.js";
 import { checkTaskTraceability } from "../src/rules/checkTaskTraceability.js";
+import { checkVerifyReport } from "../src/rules/checkVerifyReport.js";
 import { checkImplementationBoundary } from "../src/rules/checkImplementationBoundary.js";
 import { checkRequiredDocuments } from "../src/rules/checkRequiredDocuments.js";
 import { checkRequiredFields } from "../src/rules/checkRequiredFields.js";
@@ -851,6 +852,66 @@ describe("improvement ledger rule", () => {
         scannedFile("01_Discover.md", `${header}\n| IMP-001 | N+1 | 없음 | Approved | |`),
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("verify report rule", () => {
+  it("stays silent when implementation has not started", () => {
+    expect(
+      checkVerifyReport([
+        scannedFile("04_Implement.md", "Implementation: Not Started"),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("warns when implementation is in progress without a verify report", () => {
+    const issues = checkVerifyReport([
+      scannedFile("04_Implement.md", "Implementation: In Progress\n구현했습니다."),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      severity: "warning",
+      ruleId: "VERIFY_REPORT",
+    });
+  });
+
+  it("accepts a passing verify report", () => {
+    expect(
+      checkVerifyReport([
+        scannedFile(
+          "04_Implement.md",
+          "Implementation: Completed\n- 리포트: `reports/verify-20260810-090000.txt` (PASS)",
+        ),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("errors when the cited report is FAIL", () => {
+    const issues = checkVerifyReport([
+      scannedFile(
+        "04_Implement.md",
+        "Implementation: Completed\n- 리포트: `reports/verify-20260810-090000.txt` (FAIL)",
+      ),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      severity: "error",
+      ruleId: "VERIFY_REPORT",
+    });
+  });
+
+  it("treats the unfilled template placeholder as no report", () => {
+    const issues = checkVerifyReport([
+      scannedFile(
+        "04_Implement.md",
+        "Implementation: In Progress\n- 리포트: `reports/verify-<타임스탬프>.txt`",
+      ),
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.severity).toBe("warning");
   });
 });
 

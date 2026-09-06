@@ -1,10 +1,12 @@
 # Legacy Migration Validator CLI
 
-> 스펙 기반 레거시 마이그레이션 과정에서 Markdown 문서의 구조와 기본 일관성을 검사하는 read-only CLI PoC
+레거시 이관 과정에서 작성한 Markdown 문서를 읽고, 필수 항목 누락과 승인 기록의 모순을 검사하는 CLI입니다. 원본 문서는 바꾸지 않고, 검사 결과를 별도 Markdown 보고서와 종료 코드로 반환합니다.
+
+Node.js와 TypeScript로 만든 PoC이며, 문서에 적힌 업무 규칙이나 실제 이관 결과의 정확성을 판단하는 도구는 아닙니다.
 
 ## 왜 만들었는가
 
-레거시 기능을 이관할 때는 코드 작성 전에 Discover, Specify, Plan, Implement, Validate, Archive 문서를 순서대로 남기는 것이 중요합니다. 그러나 문서가 많아지면 다음 문제가 반복됩니다.
+이관 분석부터 계획, 구현, 검증까지 문서로 남기면 작업 근거를 추적할 수 있습니다. 다만 여러 문서를 함께 관리하다 보면 다음과 같은 불일치가 생깁니다.
 
 - 필수 문서나 section이 누락된다.
 - 같은 상태를 서로 다른 표현으로 기록한다.
@@ -12,7 +14,7 @@
 - 공개하면 안 되는 값이 문서에 섞일 수 있다.
 - 사람이 모든 Markdown 파일을 매번 수동 검토해야 한다.
 
-이 프로젝트는 이런 문제를 조기에 찾기 위한 로컬 CLI 실험입니다. 문서의 의미를 대신 판단하지 않고, deterministic rule로 확인할 수 있는 구조·표현·안전성 후보만 검사합니다.
+이 중 정해진 규칙으로 확인할 수 있는 문서 구조와 표현을 검사합니다. 민감정보와 문맥 충돌처럼 자동으로 확정하기 어려운 항목은 사람이 확인할 경고 후보로 남깁니다.
 
 ## 현재 상태
 
@@ -23,6 +25,65 @@
 - Production-ready 도구가 아님
 
 이 도구는 domain rule의 정확성, 실제 migration 성공 여부 또는 runtime behavior를 보장하지 않습니다.
+
+## 요구 환경
+
+- Node.js 20 이상
+- npm
+
+## 설치
+
+바로 실행(GitHub에서 설치):
+
+```sh
+npx --yes github:winkrj/legacy-migration-validator-cli validate \
+  --root ./docs/migration/<case> \
+  --report ./reports/<case>-report.md
+```
+
+git 설치 시 `prepare` 스크립트가 `dist/`를 자동 빌드하므로 별도 빌드 없이 실행됩니다.
+
+로컬 개발:
+
+```sh
+git clone https://github.com/winkrj/legacy-migration-validator-cli.git
+cd legacy-migration-validator-cli
+npm install
+npm run typecheck
+npm test
+```
+
+위 명령은 공개 저장소를 사용하는 예시입니다. 실제 이관 문서와 생성 보고서는 공개용 fixture와 구분해 관리합니다.
+
+## 사용법
+
+Command contract:
+
+```text
+legacy-validator validate --root <path> [--root <path> ...] --report <path>
+```
+
+`--root`는 반복 지정할 수 있습니다. 케이스 문서(`docs/migration/<case>`)와 OpenSpec change(`changes/<change>`)를 함께 검사하면 tasks.md 기반 룰(`TASK_ID_TRIAD` 등)이 동작합니다. report 경로는 모든 root 밖이어야 합니다.
+
+빌드한 CLI 실행:
+
+```sh
+npm run build
+node dist/index.js validate \
+  --root ./fixtures/valid-vault \
+  --report ./reports/valid-report.md
+```
+
+개발 모드:
+
+```sh
+npm run dev -- validate \
+  --root ./fixtures/valid-vault \
+  --report ./reports/valid-report.md
+```
+
+`--report`는 반드시 input root 밖의 경로여야 합니다. Input root 내부 또는 root와 동일한 report 경로는 exit code `2`로 거부됩니다.
+
 
 ## 검사 기준
 
@@ -98,64 +159,6 @@ Scanner는 다음 원칙을 따릅니다.
 - File/directory symlink를 따라가지 않습니다.
 - Input root의 파일을 생성·수정·삭제하지 않습니다.
 
-## 요구 환경
-
-- Node.js 20 이상
-- npm
-
-## 설치
-
-바로 실행(GitHub에서 설치):
-
-```sh
-npx --yes github:winkrj/legacy-migration-validator-cli validate \
-  --root ./docs/migration/<case> \
-  --report ./reports/<case>-report.md
-```
-
-git 설치 시 `prepare` 스크립트가 `dist/`를 자동 빌드하므로 별도 빌드 없이 실행됩니다.
-
-로컬 개발:
-
-```sh
-git clone <private-or-approved-repository-url>
-cd legacy-migration-validator-cli
-npm install
-npm run typecheck
-npm test
-```
-
-Repository visibility와 URL은 소유자의 승인 범위를 따라야 합니다.
-
-## 사용법
-
-Command contract:
-
-```text
-legacy-validator validate --root <path> [--root <path> ...] --report <path>
-```
-
-`--root`는 반복 지정할 수 있습니다. 케이스 문서(`docs/migration/<case>`)와 OpenSpec change(`changes/<change>`)를 함께 검사하면 tasks.md 기반 룰(`TASK_ID_TRIAD` 등)이 동작합니다. report 경로는 모든 root 밖이어야 합니다.
-
-빌드한 CLI 실행:
-
-```sh
-npm run build
-node dist/index.js validate \
-  --root ./fixtures/valid-vault \
-  --report ./reports/valid-report.md
-```
-
-개발 모드:
-
-```sh
-npm run dev -- validate \
-  --root ./fixtures/valid-vault \
-  --report ./reports/valid-report.md
-```
-
-`--report`는 반드시 input root 밖의 경로여야 합니다. Input root 내부 또는 root와 동일한 report 경로는 exit code `2`로 거부됩니다.
-
 ## 출력
 
 stdout 예:
@@ -208,13 +211,15 @@ fixtures/      # public-safe acceptance fixtures
 reports/       # generated report output (Git ignored)
 ```
 
+저장소 자체의 [GitHub Actions CI](.github/workflows/ci.yml)는 typecheck, 테스트, 빌드를 실행합니다. 이는 이 CLI가 이관 대상 프로젝트에 CI를 설치하거나 연결해 준다는 의미는 아닙니다.
+
 ## 지원하지 않는 범위
 
 - JSON output
 - Configurable alias/rule configuration
 - LLM-assisted review
 - Auto-fix 또는 source mutation
-- CI integration
+- 이관 대상 프로젝트의 CI를 자동으로 구성하는 기능
 - MCP/Plugin integration
 - Domain meaning judgement
 - 실제 회사 repository 또는 fixture 검증 사례 제공
@@ -263,4 +268,4 @@ reports/       # generated report output (Git ignored)
 
 ## License
 
-현재 별도 license가 정의되지 않았습니다. 재배포 또는 공개 사용 범위는 repository 소유자 결정이 필요합니다.
+[MIT License](LICENSE)를 따릅니다.

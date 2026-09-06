@@ -4,7 +4,7 @@
 
 Node.js와 TypeScript로 만든 PoC이며, 문서에 적힌 업무 규칙이나 실제 이관 결과의 정확성을 판단하는 도구는 아닙니다.
 
-## 왜 만들었는가
+## 개발 배경
 
 이관 분석부터 계획, 구현, 검증까지 문서로 남기면 작업 근거를 추적할 수 있습니다. 다만 여러 문서를 함께 관리하다 보면 다음과 같은 불일치가 생깁니다.
 
@@ -141,7 +141,7 @@ npm run dev -- validate \
 
 Warning만 존재하면 CLI exit code는 `0`입니다.
 
-## 어떻게 동작하는가
+## 동작 방식
 
 ```text
 CLI argument/path validation

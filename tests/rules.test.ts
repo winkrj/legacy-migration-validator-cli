@@ -1,3 +1,6 @@
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { requiredDocuments } from "../src/config/requiredDocuments.js";
 import { requiredFields } from "../src/config/requiredFields.js";
@@ -109,7 +112,7 @@ describe("required document rule", () => {
     ).toBe(true);
   });
 
-  it("accepts required documents at any folder depth", () => {
+  it("does not combine incomplete case directories", () => {
     const files = requiredDocuments.map((fileName, index) =>
       scannedFile(
         fileName,
@@ -118,7 +121,7 @@ describe("required document rule", () => {
       ),
     );
 
-    expect(checkRequiredDocuments(files)).toEqual([]);
+    expect(checkRequiredDocuments(files)).toHaveLength(requiredDocuments.length * (requiredDocuments.length - 1));
   });
 });
 
@@ -876,15 +879,18 @@ describe("verify report rule", () => {
     });
   });
 
-  it("accepts a passing verify report", () => {
-    expect(
-      checkVerifyReport([
-        scannedFile(
-          "04_Implement.md",
-          "Implementation: Completed\n- 리포트: `reports/verify-20260810-090000.txt` (PASS)",
-        ),
-      ]),
-    ).toEqual([]);
+  it("accepts only an existing report whose final result is PASS", () => {
+    const root = mkdtempSync(join(tmpdir(), "verify-rule-"));
+    try {
+      mkdirSync(join(root, "reports"));
+      const report = join(root, "reports/verify-test.txt");
+      const file = { ...scannedFile("04_Implement.md", "Implementation: Completed\nreports/verify-test.txt (PASS)"), absolutePath: join(root, "04_Implement.md") };
+      expect(checkVerifyReport([file])).toHaveLength(1);
+      writeFileSync(report, "결과: PASS\n");
+      expect(checkVerifyReport([file])).toEqual([]);
+      writeFileSync(report, "결과: PASS\n결과: FAIL\n");
+      expect(checkVerifyReport([file])).toHaveLength(1);
+    } finally { rmSync(root, { recursive: true, force: true }); }
   });
 
   it("errors when the cited report is FAIL", () => {
@@ -964,5 +970,23 @@ describe("permission gate rule", () => {
       severity: "error",
       ruleId: "PERMISSION_OPEN_QUESTION",
     });
+  });
+});
+
+
+describe("case permission isolation", () => {
+  it("does not borrow another case's permission", () => {
+    const issues = checkPermissionGate([
+      scannedFile("03_Plan.md", "Implementation Permission: Granted", "a/03_Plan.md"),
+      scannedFile("tasks.md", "- [x] IMPL-API-001", "b/tasks.md"),
+    ]);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.file).toBe("b/tasks.md");
+  });
+  it("does not block a case because another case has questions", () => {
+    expect(checkPermissionGate([
+      scannedFile("03_Plan.md", "Implementation Permission: Granted", "a/03_Plan.md"),
+      scannedFile("99_Open-Questions.md", "| ID | Status |\n|---|---|\n| Q1 | Open |", "b/99_Open-Questions.md"),
+    ])).toEqual([]);
   });
 });

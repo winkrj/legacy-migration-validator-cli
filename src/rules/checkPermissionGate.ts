@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import type { ValidationIssue } from "../model/ValidationIssue.js";
 import type { ScannedMarkdownFile } from "../scanner/scanMarkdownFiles.js";
 import { parseMarkdownTables } from "./markdownTable.js";
@@ -17,6 +18,15 @@ interface Location {
 export function checkPermissionGate(
   files: readonly ScannedMarkdownFile[],
 ): ValidationIssue[] {
+  const groups = new Map<string, ScannedMarkdownFile[]>();
+  for (const file of files) {
+    const directory = dirname(file.relativePath);
+    groups.set(directory, [...(groups.get(directory) ?? []), file]);
+  }
+  return [...groups.entries()].sort().flatMap(([, group]) => checkCasePermission(group));
+}
+
+function checkCasePermission(files: readonly ScannedMarkdownFile[]): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
   const grants: Location[] = [];

@@ -1,10 +1,14 @@
 # Legacy Migration Validator CLI
 
-> 스펙 기반 레거시 마이그레이션 과정에서 Markdown 문서의 구조와 기본 일관성을 검사하는 read-only CLI PoC
+레거시 이관 과정에서 작성한 Markdown 문서를 읽고, 필수 항목 누락과 승인 기록의 모순을 검사하는 CLI입니다. 원본 문서는 바꾸지 않고, 검사 결과를 별도 Markdown 보고서와 종료 코드로 반환합니다.
 
-## 왜 만들었는가
+현재는 [AI Legacy Migration Kit](https://github.com/winkrj/ai-legacy-migration-framework-kit)의 **기존 단계별 Markdown 문서를 위한 선택적 호환 검사기**입니다. 새 kit의 단일 이관 흐름은 kit 내부 `migration_check.py`를 사용하므로 이 CLI를 설치할 필요가 없습니다.
 
-레거시 기능을 이관할 때는 코드 작성 전에 Discover, Specify, Plan, Implement, Validate, Archive 문서를 순서대로 남기는 것이 중요합니다. 그러나 문서가 많아지면 다음 문제가 반복됩니다.
+이 CLI는 Node.js와 TypeScript로 만든 PoC입니다. 문서 구조를 검사하며, 업무 규칙이나 실제 이관 결과의 정확성은 별도로 검증해야 합니다.
+
+## 개발 배경
+
+이관 분석부터 계획, 구현, 검증까지 문서로 남기면 작업 근거를 추적할 수 있습니다. 다만 여러 문서를 함께 관리하다 보면 다음과 같은 불일치가 생깁니다.
 
 - 필수 문서나 section이 누락된다.
 - 같은 상태를 서로 다른 표현으로 기록한다.
@@ -12,7 +16,7 @@
 - 공개하면 안 되는 값이 문서에 섞일 수 있다.
 - 사람이 모든 Markdown 파일을 매번 수동 검토해야 한다.
 
-이 프로젝트는 이런 문제를 조기에 찾기 위한 로컬 CLI 실험입니다. 문서의 의미를 대신 판단하지 않고, deterministic rule로 확인할 수 있는 구조·표현·안전성 후보만 검사합니다.
+이 중 정해진 규칙으로 확인할 수 있는 문서 구조와 표현을 검사합니다. 민감정보와 문맥 충돌처럼 자동으로 확정하기 어려운 항목은 사람이 확인할 경고 후보로 남깁니다.
 
 ## 현재 상태
 
@@ -24,11 +28,70 @@
 
 이 도구는 domain rule의 정확성, 실제 migration 성공 여부 또는 runtime behavior를 보장하지 않습니다.
 
+## 요구 환경
+
+- Node.js 20 이상
+- npm
+
+## 설치
+
+바로 실행(GitHub에서 설치):
+
+```sh
+npx --yes github:winkrj/legacy-migration-validator-cli validate \
+  --root ./docs/migration/<case> \
+  --report ./reports/<case>-report.md
+```
+
+git 설치 시 `prepare` 스크립트가 `dist/`를 자동 빌드하므로 별도 빌드 없이 실행됩니다.
+
+로컬 개발:
+
+```sh
+git clone https://github.com/winkrj/legacy-migration-validator-cli.git
+cd legacy-migration-validator-cli
+npm install
+npm run typecheck
+npm test
+```
+
+위 명령은 공개 저장소를 사용하는 예시입니다. 실제 이관 문서와 생성 보고서는 공개용 fixture와 구분해 관리합니다.
+
+## 사용법
+
+Command contract:
+
+```text
+legacy-validator validate --root <path> [--root <path> ...] --report <path>
+```
+
+`--root`는 반복 지정할 수 있습니다. 케이스 문서(`docs/migration/<case>`)와 OpenSpec change(`changes/<change>`)를 함께 검사하면 tasks.md 기반 룰(`TASK_ID_TRIAD` 등)이 동작합니다. report 경로는 모든 root 밖이어야 합니다.
+
+빌드한 CLI 실행:
+
+```sh
+npm run build
+node dist/index.js validate \
+  --root ./fixtures/valid-vault \
+  --report ./reports/valid-report.md
+```
+
+개발 모드:
+
+```sh
+npm run dev -- validate \
+  --root ./fixtures/valid-vault \
+  --report ./reports/valid-report.md
+```
+
+`--report`는 반드시 input root 밖의 경로여야 합니다. Input root 내부 또는 root와 동일한 report 경로는 exit code `2`로 거부됩니다.
+
+
 ## 검사 기준
 
 ### 필수 문서
 
-스캔 대상 어디에서든 다음 basename의 문서가 존재하는지 확인합니다.
+단계별 문서가 있는 각 case 디렉터리에 다음 파일이 모두 있는지 확인합니다. 서로 다른 case의 문서를 합쳐 하나의 완성된 문서 묶음으로 판정하지 않습니다.
 
 - `00_Index.md`
 - `01_Discover.md`
@@ -63,8 +126,17 @@
 
 ### 승인 게이트
 
-- 어디에도 Implementation Permission이 `Granted`되지 않았는데 IMPL task가 완료(`- [x]`)로 표시되면 error(`PERMISSION_COMPLETION`)입니다.
-- 미해결(`Open`) Open Question이 있는데 Implementation Permission이 `Granted`이면 error(`PERMISSION_OPEN_QUESTION`)입니다.
+- 같은 case 디렉터리에서 Implementation Permission이 `Granted`되지 않았는데 IMPL task가 완료(`- [x]`)로 표시되면 error(`PERMISSION_COMPLETION`)입니다.
+- 같은 case의 미해결(`Open`) Open Question이 있는데 Implementation Permission이 `Granted`이면 error(`PERMISSION_OPEN_QUESTION`)입니다.
+
+이 검사는 기존 문서 형식의 case 단위 일관성 검사입니다. task별 승인 범위나 실제 승인자의 신원을 인증하지 않습니다. tasks.md를 다른 디렉터리에 두면 해당 디렉터리의 승인 기록을 사용하며, 다른 case의 승인을 가져오지 않습니다.
+
+### 실행 리포트와 AC 기록
+
+- `04_Implement.md`가 구현 진행 상태인데 verify 리포트 참조가 없으면 warning입니다.
+- 인용된 실제 리포트가 없거나 파일의 마지막 `결과:`가 `PASS`가 아니면 error입니다. 문서에 적힌 PASS만으로 통과시키지 않습니다.
+- 리포트는 해당 문서에서 상위로 탐색한 프로젝트의 `reports/verify-*.txt`를 확인합니다. 현재 코드와 실행 결과의 해시 연결은 새 kit 내부 검사기가 담당합니다.
+- `AC_COVERAGE`는 AC ID가 검증 문서에 기록됐는지 확인합니다. `Not Run`이 기록돼 있어도 ID 연결 자체는 성립하므로, 이 검사만으로 테스트 통과를 판단하지 않습니다.
 
 ### Vocabulary와 boundary
 
@@ -80,14 +152,14 @@
 
 Warning만 존재하면 CLI exit code는 `0`입니다.
 
-## 어떻게 동작하는가
+## 동작 방식
 
-```text
-CLI argument/path validation
-  → read-only Markdown scan
-  → deterministic rule execution
-  → Markdown report 생성
-  → stdout summary와 exit code 반환
+```mermaid
+flowchart LR
+    Input["기존 이관 문서 경로"] --> Scan["Markdown 읽기 전용 탐색"]
+    Scan --> Rules["case별 문서 · 승인 · 기록 검사"]
+    Report["인용된 실제 verify 리포트"] --> Rules
+    Rules --> Output["검사 보고서 · 종료 코드"]
 ```
 
 Scanner는 다음 원칙을 따릅니다.
@@ -97,64 +169,6 @@ Scanner는 다음 원칙을 따릅니다.
 - `.git`, `node_modules`, `dist`, `reports`와 hidden directory를 제외합니다.
 - File/directory symlink를 따라가지 않습니다.
 - Input root의 파일을 생성·수정·삭제하지 않습니다.
-
-## 요구 환경
-
-- Node.js 20 이상
-- npm
-
-## 설치
-
-바로 실행(GitHub에서 설치):
-
-```sh
-npx --yes github:winkrj/legacy-migration-validator-cli validate \
-  --root ./docs/migration/<case> \
-  --report ./reports/<case>-report.md
-```
-
-git 설치 시 `prepare` 스크립트가 `dist/`를 자동 빌드하므로 별도 빌드 없이 실행됩니다.
-
-로컬 개발:
-
-```sh
-git clone <private-or-approved-repository-url>
-cd legacy-migration-validator-cli
-npm install
-npm run typecheck
-npm test
-```
-
-Repository visibility와 URL은 소유자의 승인 범위를 따라야 합니다.
-
-## 사용법
-
-Command contract:
-
-```text
-legacy-validator validate --root <path> [--root <path> ...] --report <path>
-```
-
-`--root`는 반복 지정할 수 있습니다. 케이스 문서(`docs/migration/<case>`)와 OpenSpec change(`changes/<change>`)를 함께 검사하면 tasks.md 기반 룰(`TASK_ID_TRIAD` 등)이 동작합니다. report 경로는 모든 root 밖이어야 합니다.
-
-빌드한 CLI 실행:
-
-```sh
-npm run build
-node dist/index.js validate \
-  --root ./fixtures/valid-vault \
-  --report ./reports/valid-report.md
-```
-
-개발 모드:
-
-```sh
-npm run dev -- validate \
-  --root ./fixtures/valid-vault \
-  --report ./reports/valid-report.md
-```
-
-`--report`는 반드시 input root 밖의 경로여야 합니다. Input root 내부 또는 root와 동일한 report 경로는 exit code `2`로 거부됩니다.
 
 ## 출력
 
@@ -208,13 +222,15 @@ fixtures/      # public-safe acceptance fixtures
 reports/       # generated report output (Git ignored)
 ```
 
+저장소 자체의 [GitHub Actions CI](.github/workflows/ci.yml)는 typecheck, 테스트, 빌드를 실행합니다. 이는 이 CLI가 이관 대상 프로젝트에 CI를 설치하거나 연결해 준다는 의미는 아닙니다.
+
 ## 지원하지 않는 범위
 
 - JSON output
 - Configurable alias/rule configuration
 - LLM-assisted review
 - Auto-fix 또는 source mutation
-- CI integration
+- 이관 대상 프로젝트의 CI를 자동으로 구성하는 기능
 - MCP/Plugin integration
 - Domain meaning judgement
 - 실제 회사 repository 또는 fixture 검증 사례 제공
@@ -228,6 +244,13 @@ reports/       # generated report output (Git ignored)
 - 이 repository를 회사 공식 도구나 production migration validator로 표현하지 않습니다.
 
 ## 변경 이력
+
+### 다음 변경
+
+- 새 kit에서 선택적으로 사용하는 기존 문서 호환 도구로 역할 정리
+- 필수 문서와 승인 검사에서 case 간 기록 혼합 방지
+- 실제 verify 리포트 존재 여부와 최종 PASS 확인
+- 테스트 136 → 138
 
 ### 0.7.0
 - `VERIFY_REPORT`: 04_Implement가 구현 진행 상태인데 verify 리포트 참조가 없으면 warning, FAIL 리포트를 인용한 채 완료로 표시하면 error
@@ -263,4 +286,4 @@ reports/       # generated report output (Git ignored)
 
 ## License
 
-현재 별도 license가 정의되지 않았습니다. 재배포 또는 공개 사용 범위는 repository 소유자 결정이 필요합니다.
+[MIT License](LICENSE)를 따릅니다.
